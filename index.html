@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uitagenda Brabant – salsa &amp; reggae</title>
+  <style>
+    :root {
+      --achtergrond: #0f0f1a;
+      --kaart: #1b1b2f;
+      --rand: #2c2c48;
+      --tekst: #f2f2f7;
+      --tekst-zacht: #a9a9c2;
+      --salsa: #ff4d8d;    /* roze-rood */
+      --reggae: #33d17a;   /* groen */
+      --geel: #f9d423;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--achtergrond); color: var(--tekst);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.5;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+
+    header { padding: 48px 0 24px; text-align: center; }
+    h1 {
+      margin: 0; font-size: clamp(2rem, 6vw, 3.2rem);
+      background: linear-gradient(90deg, var(--salsa), var(--geel), var(--reggae));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    header p { color: var(--tekst-zacht); margin: 8px 0 0; }
+
+    /* Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 24px 0; }
+    .knop {
+      border: 1px solid var(--rand); background: var(--kaart); color: var(--tekst);
+      padding: 8px 16px; border-radius: 999px; cursor: pointer; font: inherit; font-weight: 600;
+    }
+    .knop[aria-pressed="true"] { background: var(--tekst); color: var(--achtergrond); }
+    .knop.salsa[aria-pressed="true"] { background: var(--salsa); color: #1a0010; }
+    .knop.reggae[aria-pressed="true"] { background: var(--reggae); color: #00170a; }
+    select {
+      background: var(--kaart); color: var(--tekst); border: 1px solid var(--rand);
+      padding: 8px 12px; border-radius: 999px; font: inherit;
+    }
+    .aantal { text-align: center; color: var(--tekst-zacht); margin-bottom: 16px; }
+
+    /* Evenementen */
+    .lijst { display: grid; gap: 14px; padding-bottom: 48px; }
+    .item {
+      display: grid; grid-template-columns: 76px 1fr; gap: 16px; align-items: center;
+      background: var(--kaart); border: 1px solid var(--rand); border-radius: 14px; padding: 16px;
+      border-left: 5px solid var(--salsa);
+    }
+    .item.reggae { border-left-color: var(--reggae); }
+    .datum { text-align: center; }
+    .dag { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .maand { text-transform: uppercase; font-size: .8rem; color: var(--tekst-zacht); letter-spacing: .08em; }
+    .item h2 { font-size: 1.15rem; margin: 0 0 4px; }
+    .info { color: var(--tekst-zacht); font-size: .95rem; }
+    .label {
+      display: inline-block; font-size: .75rem; font-weight: 700; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 6px; margin-right: 6px; background: var(--salsa); color: #1a0010;
+    }
+    .reggae .label { background: var(--reggae); color: #00170a; }
+    .item a { color: var(--geel); font-weight: 600; text-decoration: none; }
+    .item a:hover { text-decoration: underline; }
+    .leeg { text-align: center; color: var(--tekst-zacht); padding: 32px; }
+
+    footer { text-align: center; color: var(--tekst-zacht); font-size: .85rem; padding: 24px 0 40px; }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <h1>Uitagenda Brabant</h1>
+    <p>Salsa &amp; reggae in Eindhoven, Den Bosch, Breda, Tilburg en verder</p>
+  </header>
+
+  <main class="wrap">
+    <div class="filters" aria-label="Filters">
+      <button class="knop" data-stijl="alle" aria-pressed="true">Alles</button>
+      <button class="knop salsa" data-stijl="salsa" aria-pressed="false">💃 Salsa</button>
+      <button class="knop reggae" data-stijl="reggae" aria-pressed="false">🎶 Reggae</button>
+      <select id="stad" aria-label="Stad"><option value="alle">Alle steden</option></select>
+      <select id="dag" aria-label="Dag">
+        <option value="alle">Alle dagen</option>
+        <option value="1">Maandag</option><option value="2">Dinsdag</option><option value="3">Woensdag</option>
+        <option value="4">Donderdag</option><option value="5">Vrijdag</option><option value="6">Zaterdag</option>
+        <option value="0">Zondag</option>
+      </select>
+    </div>
+    <p class="aantal" id="aantal"></p>
+    <div class="lijst" id="lijst"></div>
+  </main>
+
+  <footer class="wrap">Gegevens zonder garantie – check altijd de site van de organisator.</footer>
+
+  <!-- Eerst de gegevens laden, daarna de code die ze toont -->
+  <script src="agenda.js"></script>
+  <script>
+    // Huidige filterkeuzes
+    const filter = { stijl: "alle", stad: "alle", dag: "alle" };
+
+    // Datum en tijd van een evenement als Date-object
+    function wanneer(ev) { return new Date(ev.datum + "T" + ev.tijd); }
+
+    // Tekst veilig maken voor HTML (voorkomt problemen met tekens als < en &)
+    function veilig(tekst) {
+      return String(tekst).replace(/[&<>"']/g, t => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[t]));
+    }
+
+    // Stap 1: keuzelijst met steden vullen uit de gegevens
+    const steden = [...new Set(AGENDA.map(ev => ev.stad))].sort((a, b) => a.localeCompare(b, "nl"));
+    const stadKeuze = document.getElementById("stad");
+    steden.forEach(stad => stadKeuze.add(new Option(stad, stad)));
+
+    // Stap 2: evenementen filteren, sorteren en tonen
+    function toon() {
+      const vandaag = new Date();
+      vandaag.setHours(0, 0, 0, 0);
+
+      const zichtbaar = AGENDA
+        .filter(ev => wanneer(ev) >= vandaag)                                   // alleen vandaag en later
+        .filter(ev => filter.stijl === "alle" || ev.stijl === filter.stijl)
+        .filter(ev => filter.stad === "alle" || ev.stad === filter.stad)
+        .filter(ev => filter.dag === "alle" || wanneer(ev).getDay() === Number(filter.dag))
+        .sort((a, b) => wanneer(a) - wanneer(b));                               // eerstvolgende bovenaan
+
+      document.getElementById("aantal").textContent =
+        zichtbaar.length === 1 ? "1 evenement" : zichtbaar.length + " evenementen";
+
+      const lijst = document.getElementById("lijst");
+      if (zichtbaar.length === 0) {
+        lijst.innerHTML = '<p class="leeg">Geen evenementen gevonden. Probeer een ander filter.</p>';
+        return;
+      }
+
+      lijst.innerHTML = zichtbaar.map(ev => {
+        const d = wanneer(ev);
+        const dagnaam = d.toLocaleDateString("nl-NL", { weekday: "long" });
+        const maand = d.toLocaleDateString("nl-NL", { month: "short" });
+        return `
+          <article class="item ${ev.stijl === "reggae" ? "reggae" : "salsa"}">
+            <div class="datum">
+              <div class="dag">${d.getDate()}</div>
+              <div class="maand">${veilig(maand)}</div>
+            </div>
+            <div>
+              <h2>${veilig(ev.titel)}</h2>
+              <div class="info">
+                <span class="label">${veilig(ev.stijl)}</span>
+                ${veilig(dagnaam)} ${veilig(ev.tijd)} · ${veilig(ev.stad)} · ${veilig(ev.locatie)}
+              </div>
+              <a href="${veilig(ev.link)}" target="_blank" rel="noopener">Meer info →</a>
+            </div>
+          </article>`;
+      }).join("");
+    }
+
+    // Stap 3: reageren op klikken en keuzes
+    document.querySelectorAll("[data-stijl]").forEach(knop => {
+      knop.addEventListener("click", () => {
+        filter.stijl = knop.dataset.stijl;
+        document.querySelectorAll("[data-stijl]").forEach(k => k.setAttribute("aria-pressed", k === knop));
+        toon();
+      });
+    });
+    stadKeuze.addEventListener("change", () => { filter.stad = stadKeuze.value; toon(); });
+    document.getElementById("dag").addEventListener("change", e => { filter.dag = e.target.value; toon(); });
+
+    toon();
+  </script>
+</body>
+</html>
